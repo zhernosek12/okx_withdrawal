@@ -6,12 +6,14 @@ import ccxt
 from loguru import logger
 from pathlib import Path
 
-from src.helper import load_data
+from src.helper import load_data, print_logo
 from src.config import config
 
 
 async def run():
     try:
+        print_logo()
+
         okx_account = ccxt.okx({
             'apiKey': config.okx_key,
             'secret': config.okx_secret,
