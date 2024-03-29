@@ -19,3 +19,29 @@ def load_data(file_path: Path) -> List[str]:
     with file_path.open() as f:
         data = f.read().splitlines()
     return data
+
+
+def fee_network(symbol, name, fees):
+    networks = {
+        "AVAX": {
+            "Avalanche C-Chain": "Avalanche C"
+        },
+        "ETH": {
+            "ERC20": "ERC20",
+            "Base": "Base",
+            "Optimism": "OPTIMISM",
+            "Arbitrum One": "Arbitrum One",
+            "zkSync Era": "zkSync Era",
+        },
+        "BNB": {
+            "BSC": "BEP20",
+        },
+        "MATIC": {
+            "Polygon": "MATIC"
+        }
+    }
+    try:
+        return networks[symbol][name]
+    except Exception as e:
+        return name
+        #raise Exception(f"Сеть не найдена! '{symbol}' --> '{name}' ({fees})")

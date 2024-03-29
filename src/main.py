@@ -6,60 +6,83 @@ import ccxt
 from loguru import logger
 from pathlib import Path
 
-from src.helper import load_data, print_logo
-from src.config import config
+from src.helper import load_data, print_logo, fee_network
+from src.config import load_config
 
 
-async def run():
-    try:
-        print_logo()
+async def run(filename: str):
+    print_logo()
 
-        okx_account = ccxt.okx({
-            'apiKey': config.okx_key,
-            'secret': config.okx_secret,
-            'password': config.okx_password
-        })
+    config = load_config(filename)
 
-        root_path = Path(__file__).resolve().parent.parent
-        wallets_path = root_path / "wallets.txt"
+    okx_account = ccxt.okx({
+        'apiKey': config.okx_key,
+        'secret': config.okx_secret,
+        'password': config.okx_password
+    })
 
-        wallets = load_data(wallets_path)
+    root_path = Path(__file__).resolve().parent.parent
+    wallets_path = root_path / config.filename
 
-        if config.shuffle:
-            random.shuffle(wallets)
+    wallets = load_data(wallets_path)
 
-        logger.info("Начинаем вывод с OKX")
-        for address in wallets:
-            amount = round(random.uniform(
-                config.amount_withdraw.from_value,
-                config.amount_withdraw.to_value
-            ), 7)
+    if config.shuffle:
+        random.shuffle(wallets)
 
-            logger.info(f"Выводим: {amount} {config.symbol} в сети {config.network} на {address}")
+    logger.info("Начинаем вывод с OKX")
 
-            fees = okx_account.fetch_deposit_withdraw_fees([config.symbol])
-            fee = float(str(fees["ETH"]["networks"][config.network]["withdraw"]["fee"]))
+    for data in wallets:
+        if data == "":
+            continue
 
-            logger.info(f"Комиссия за вывод в сети {config.network} составляет {fee} {config.symbol}")
+        amount = round(random.uniform(
+            config.amount_withdraw.from_value,
+            config.amount_withdraw.to_value
+        ), 7)
 
-            sleep_after_withdraw = random.randint(
-                config.sleep_after_withdraw.from_value,
-                config.sleep_after_withdraw.to_value
-            )
+        datas = data.split(";")
+        if len(datas) == 2:
+            address = datas[0]
+            amount = round(float(datas[1]), 7)
+        else:
+            address = datas[0]
 
-            okx_account.withdraw(config.symbol, amount + fee, address,
-                                 params={'fee': fee, 'chain': config.symbol + "-" + config.network,
-                                         'pwd': config.okx_password})
+        while True:
+            try:
+                fees = okx_account.fetch_deposit_withdraw_fees([config.symbol])
+                fee_network_name = fee_network(config.symbol, config.network, fees)
+                fee = float(str(fees[config.symbol]["networks"][fee_network_name]["withdraw"]["fee"]))
+            except Exception as e:
+                logger.info(f"Ошибка при получении комисси за вывод, берем значение из файла конфига")
+                fee = float(config.withdraw_fee)
 
-            logger.success(f"Успешно {address} | {amount} {config.symbol} в сети {config.network}.")
+            try:
+                logger.info(f"Выводим: {amount} {config.symbol} в сети {config.network} на {address}")
+                logger.info(f"Комиссия за вывод в сети {config.network} составляет {fee} {config.symbol}")
 
-            logger.info(f"Ждем {sleep_after_withdraw} сек.")
-            time.sleep(sleep_after_withdraw)
+                sleep_after_withdraw = random.randint(
+                    config.sleep_after_withdraw.from_value,
+                    config.sleep_after_withdraw.to_value
+                )
 
-    except Exception as e:
-        logger.error("Ошибка: " + str(e))
+                okx_account.withdraw(config.symbol, amount + fee, address,
+                                     params={'fee': fee, 'chain': config.symbol + "-" + config.network,
+                                             'pwd': config.okx_password})
+
+                logger.success(f"Успешно {address} | {amount} {config.symbol} в сети {config.network}.")
+
+                logger.info(f"Ждем {sleep_after_withdraw} сек.")
+                time.sleep(sleep_after_withdraw)
+
+                break
+
+            except Exception as e:
+                logger.error("Ошибка: " + str(e))
+                time.sleep(30)
+
+    logger.info("Завершили вывод с OKX")
 
 
-def main():
+def main(filename: str):
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(run())
+    loop.run_until_complete(run(filename))

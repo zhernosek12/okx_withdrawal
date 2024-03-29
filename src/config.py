@@ -41,15 +41,19 @@ class AppConfig(BaseModel):
     okx_key: str
     okx_secret: str
     okx_password: str
+    filename: str
     shuffle: bool
     symbol: str
     network: str
     amount_withdraw: RangeFloat
+    withdraw_fee: float
     sleep_after_withdraw: RangeInt
 
 
-_config_path = Path(__file__).resolve().parent.parent / "config.yaml"
-with _config_path.open(encoding="utf-8") as f:
-    _data = yaml.safe_load(f)
+def load_config(filename: str = "config.yaml"):
+    _config_path = Path(__file__).resolve().parent.parent / filename
+    with _config_path.open(encoding="utf-8") as f:
+        _data = yaml.safe_load(f)
 
-config = AppConfig.model_validate(_data)
+    config = AppConfig.model_validate(_data)
+    return config
